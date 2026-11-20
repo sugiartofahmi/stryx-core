@@ -1,22 +1,87 @@
 # Stryx
 
-> Multi-Purpose Web Scraping Engine for Modern Web Content Extraction
-
-`Stryx` is a multi-purpose web scraping engine designed to reliably fetch complete, hydrated HTML content across modern web targets. Whether extracting job listings, discussion threads, developer forum comments, or repository issues, Stryx adapts automatically to deliver full web page content.
+Multi-purpose web scraping engine designed to fetch fully hydrated HTML content across modern web targets, adapting automatically between direct HTTP and headless browser execution.
 
 ---
 
-## Screen Capture Evidence
+## Quickstart
 
-Evidence captured during live extraction, cropped to active content viewports demonstrating fully rendered page states:
+### Prerequisites
+
+- Node.js 20+
+- pnpm 9+
+
+### Installation
+
+```bash
+git clone https://github.com/sugiartofahmi/stryx-core.git
+cd stryx-core
+pnpm install
+pnpm build
+```
+
+### Usage
+
+```bash
+pnpm cli <url> [options]
+```
+
+#### Options
+
+| Flag | Description | Default |
+|---|---|---|
+| `--output <file>` | Destination path for the saved HTML document | `./output/<domain-slug>.html` |
+| `--timeout <ms>` | Maximum execution timeout in milliseconds | `30000` |
+
+#### Examples
+
+```bash
+# Job search
+pnpm cli "https://www.linkedin.com/jobs/search/?currentJobId=4490988268&keywords=fullstack"
+pnpm cli "https://remoteok.com/remote-fullstack-jobs"
+pnpm cli "https://glints.com/id/opportunities/jobs/explore?keyword=fullstack"
+pnpm cli "https://www.indeed.com/jobs?q=fullstack"
+pnpm cli "https://id.jobstreet.com/id/job-search/fullstack-jobs/"
+
+# Communities and discussion threads
+pnpm cli "https://www.reddit.com/r/programming/comments/"
+pnpm cli "https://github.com/facebook/react/issues/1000"
+pnpm cli "https://www.hackerrank.com/challenges/simple-array-sum/forum"
+pnpm cli "https://www.ashbyhq.com"
+```
+
+---
+
+## Verified Targets
+
+Summary of target platforms verified with full content extraction:
+
+| Platform | Target Endpoint | Content Type | Payload Size | Result |
+|---|---|---|---|---|
+| **LinkedIn** | `linkedin.com/jobs/search` | Job listings & search results | 314 KB | Success |
+| **RemoteOK** | `remoteok.com/remote-dev-jobs` | Engineering job cards | 58 KB | Success |
+| **Glints** | `glints.com/opportunities` | Career postings & company data | 1.04 MB | Success |
+| **Indeed** | `indeed.com/jobs` | Job cards & search pagination | 1.10 MB | Success |
+| **JobStreet** | `id.jobstreet.com/jobs` | Regional tech listings | 1.00 MB | Success |
+| **Nodeflair** | `nodeflair.com/jobs` | Tech salary & job cards | 137 KB | Success |
+| **Reddit** | `reddit.com/r/.../comments` | Community threads & user comments | 126 KB | Success |
+| **GitHub** | `github.com/.../issues` | Issue discussions & comment tree | 252 KB | Success |
+| **HackerRank** | `hackerrank.com/challenges/...` | Problem statements & solutions | 516 KB | Success |
+| **Ashby** | `ashbyhq.com` | Careers & directory pages | 226 KB | Success |
+
+---
+
+## Extraction Evidence
+
+Rendered page states captured during automated test runs:
 
 <p align="center">
-  <img src="docs/assets/evidence/jobstreet.png" alt="JobStreet Content" width="49%" />
-  <img src="docs/assets/evidence/indeed.png" alt="Indeed Content" width="49%" />
+  <img src="docs/assets/evidence/linkedin.png" alt="LinkedIn Content" width="49%" />
+  <img src="docs/assets/evidence/glints.png" alt="Glints Content" width="49%" />
 </p>
 <p align="center">
-  <img src="docs/assets/evidence/linkedin.png" alt="LinkedIn Jobs Content" width="49%" />
-  <img src="docs/assets/evidence/glints.png" alt="Glints Content" width="49%" />
+  <img src="docs/assets/evidence/indeed.png" alt="Indeed Content" width="49%" />
+  <img src="docs/assets/evidence/jobstreet.png" alt="JobStreet Content" width="49%" />
 </p>
 <p align="center">
   <img src="docs/assets/evidence/remoteok.png" alt="RemoteOK Content" width="85%" />
@@ -24,112 +89,7 @@ Evidence captured during live extraction, cropped to active content viewports de
 
 ---
 
-## Multi-Purpose Target Coverage
-
-Stryx has been verified across diverse web platforms for multiple data extraction use-cases:
-
-| Target Platform | URL Tested | Data Type Extracted | Content Size | Status |
-|---|---|---|---|---|
-| **LinkedIn** | `linkedin.com/jobs/search` | Job listings & search results | 301 KB | **SUCCESS** |
-| **RemoteOK** | `remoteok.com/remote-jobs` | Remote engineering job cards | 58 KB | **SUCCESS** |
-| **Glints** | `glints.com/opportunities` | Career postings & company data | 770 KB | **SUCCESS** |
-| **Indeed** | `indeed.com/jobs` | Job search results & company cards | 1.1 MB | **SUCCESS** |
-| **JobStreet** | `id.jobstreet.com/jobs` | Regional tech opportunities | 981 KB | **SUCCESS** |
-| **Nodeflair** | `nodeflair.com/jobs` | Tech salary & job cards | 135 KB | **SUCCESS** |
-| **Reddit** | `reddit.com/r/.../comments` | Community posts & user discussions | 126 KB | **SUCCESS** |
-| **GitHub** | `github.com/.../issues` | Issue threads & comment history | 231 KB | **SUCCESS** |
-| **HackerRank** | `hackerrank.com/challenges/...` | Problem statements & forum threads | 217 KB | **SUCCESS** |
-| **Ashby** | `ashbyhq.com` | Company directory & career pages | 226 KB | **SUCCESS** |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20+
-- pnpm 9+
-
-### Setup
-
-```bash
-git clone https://github.com/stryxlab/stryx.git
-cd stryx
-pnpm install
-pnpm build
-```
-
----
-
-## Usage Guide
-
-Run Stryx directly via the command line interface to fetch full HTML content and save it to disk.
-
-### 1. Basic Command Syntax
-
-```bash
-pnpm cli <url> [options]
-```
-
-### 2. Available Options
-
-| Flag | Description | Default |
-|---|---|---|
-| `--output <file>` | Custom file path to save the HTML document | Auto-generated in `./output/<domain-slug>.html` |
-| `--timeout <ms>` | Maximum request timeout in milliseconds | `30000` |
-
----
-
-### 3. Practical Usage Examples
-
-#### Scrape LinkedIn Job Search
-```bash
-pnpm cli "https://www.linkedin.com/jobs/search?keywords=fullstack" --output linkedin-jobs.html
-```
-
-#### Scrape RemoteOK Listings
-```bash
-pnpm cli "https://remoteok.com/remote-fullstack-jobs" --output remoteok.html
-```
-
-#### Scrape Glints Career Posts
-```bash
-pnpm cli "https://glints.com/id/opportunities/jobs/explore?keyword=fullstack" --output glints.html
-```
-
-#### Scrape Indeed Job Cards
-```bash
-pnpm cli "https://www.indeed.com/jobs?q=fullstack" --output indeed.html
-```
-
-#### Scrape JobStreet Opportunities
-```bash
-pnpm cli "https://id.jobstreet.com/id/job-search/fullstack-jobs/" --output jobstreet.html
-```
-
-#### Scrape Reddit Discussion & Comments
-```bash
-pnpm cli "https://www.reddit.com/r/programming/comments/" --output reddit-comments.html
-```
-
-#### Scrape GitHub Issues & Discussions
-```bash
-pnpm cli "https://github.com/microsoft/playwright/issues/1000" --output github-issue.html
-```
-
-#### Scrape HackerRank Challenges & Forum
-```bash
-pnpm cli "https://www.hackerrank.com/challenges/simple-array-sum/forum" --output hackerrank.html
-```
-
-#### Scrape Ashby Career Pages
-```bash
-pnpm cli "https://www.ashbyhq.com" --output ashby.html
-```
-
----
-
-## Repository Structure
+## Project Structure
 
 ```text
 stryx/
@@ -142,9 +102,3 @@ stryx/
 ├── stryx-solver/      # Adaptive resolution room
 └── stryx-cache/       # Session and cookie persistence
 ```
-
----
-
-## License
-
-MIT
