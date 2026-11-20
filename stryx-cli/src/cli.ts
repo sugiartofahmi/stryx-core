@@ -6,43 +6,116 @@ import { buildStryxEngine } from "@stryx/core";
 
 const generateFilenameFromUrl = (rawUrl: string): string => {
 	const parsed = new URL(rawUrl);
-	const host = parsed.hostname.replace(/^www\./, "");
-	const trimmedPath = parsed.pathname.replace(/^\/|\/$/g, "");
+	const hostname = parsed.hostname;
+	const host = hostname.replace(/^www\./, "");
+	const rawPath = parsed.pathname;
+	const trimmedPath = rawPath.replace(/^\/|\/$/g, "");
 	const cleanPath = trimmedPath.replace(/\//g, "-");
-	const base = cleanPath ? `${host}-${cleanPath}` : host;
-	const safe = base.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
+	const hasCleanPath = cleanPath.length > 0;
+	let base = host;
+	if (hasCleanPath) {
+		base = `${host}-${cleanPath}`;
+	}
+	const stepOne = base.replace(/[^a-zA-Z0-9_-]/g, "-");
+	const safe = stepOne.replace(/-+/g, "-");
 	return `${safe}.html`;
+};
+
+const extractFlagValue = (args: string[], flagName: string): string => {
+	const prefix = `--${flagName}=`;
+	const equalArg = args.find((arg) => {
+		const isMatch = arg.startsWith(prefix);
+		return isMatch;
+	});
+	const hasEqualArg = typeof equalArg === "string";
+	if (hasEqualArg) {
+		const prefixLength = prefix.length;
+		const safeArg = equalArg as string;
+		const extracted = safeArg.slice(prefixLength);
+		return extracted;
+	}
+
+	const exactFlag = `--${flagName}`;
+	const flagIdx = args.indexOf(exactFlag);
+	const hasExactFlag = flagIdx !== -1;
+	if (hasExactFlag) {
+		const nextIdx = flagIdx + 1;
+		const nextVal = args[nextIdx];
+		const hasNextVal = typeof nextVal === "string";
+		if (hasNextVal) {
+			const isAnotherFlag = nextVal.startsWith("--");
+			const isValidValue = !isAnotherFlag;
+			if (isValidValue) {
+				return nextVal;
+			}
+		}
+	}
+
+	return "";
+};
+
+const extractTargetUrl = (args: string[]): string => {
+	const flagValue = extractFlagValue(args, "url");
+	const hasFlagValue = flagValue.length > 0;
+	if (hasFlagValue) {
+		return flagValue;
+	}
+
+	const firstPositional = args.find((arg) => {
+		const isFlag = arg.startsWith("--");
+		const isPositional = !isFlag;
+		return isPositional;
+	});
+	const hasPositional = typeof firstPositional === "string";
+	if (hasPositional) {
+		const safePositional = firstPositional as string;
+		return safePositional;
+	}
+
+	return "";
 };
 
 const runCli = async () => {
 	const rawArgs = process.argv.slice(2);
-	if (rawArgs.length === 0) {
-		process.stdout.write("Usage: stryx <url> [--output <file>] [--timeout <ms>]\n");
+	const hasNoArgs = rawArgs.length === 0;
+	if (hasNoArgs) {
+		const usageMessage = "Usage: stryx --url=<url> [--output <file>] [--timeout <ms>]\n";
+		process.stdout.write(usageMessage);
 		process.exit(1);
 	}
 
-	const url = rawArgs[0];
-	if (!url || url.startsWith("--")) {
-		process.stdout.write("Error: Target URL must be the first argument.\n");
+	const url = extractTargetUrl(rawArgs);
+	const hasUrl = url.length > 0;
+	const isUrlMissing = !hasUrl;
+	if (isUrlMissing) {
+		const errorMessage =
+			"Error: Target URL must be provided via --url=<target> or as an argument.\n";
+		process.stdout.write(errorMessage);
 		process.exit(1);
 	}
 
 	let timeoutMs = 30000;
-	let outputPath = "";
-
-	const timeoutIdx = rawArgs.indexOf("--timeout");
-	if (timeoutIdx !== -1 && rawArgs[timeoutIdx + 1]) {
-		const parsedTimeout = Number.parseInt(rawArgs[timeoutIdx + 1], 10);
-		if (!Number.isNaN(parsedTimeout)) {
+	const timeoutStr = extractFlagValue(rawArgs, "timeout");
+	const hasTimeoutStr = timeoutStr.length > 0;
+	if (hasTimeoutStr) {
+		const parsedTimeout = Number.parseInt(timeoutStr, 10);
+		const isNumber = !Number.isNaN(parsedTimeout);
+		if (isNumber) {
 			timeoutMs = parsedTimeout;
 		}
 	}
 
-	const outputIdx = rawArgs.indexOf("--output");
-	if (outputIdx !== -1 && rawArgs[outputIdx + 1]) {
-		outputPath = path.resolve(rawArgs[outputIdx + 1]);
-	} else {
-		const currentFile = fileURLToPath(import.meta.url);
+	let outputPath = "";
+	const customOutput = extractFlagValue(rawArgs, "output");
+	const hasCustomOutput = customOutput.length > 0;
+	if (hasCustomOutput) {
+		outputPath = path.resolve(customOutput);
+	}
+	const hasOutputPath = outputPath.length > 0;
+	const isOutputPathMissing = !hasOutputPath;
+	if (isOutputPathMissing) {
+		const metaUrl = import.meta.url;
+		const currentFile = fileURLToPath(metaUrl);
 		const currentDir = path.dirname(currentFile);
 		const repoOutputDir = path.resolve(currentDir, "../../output");
 		await fs.mkdir(repoOutputDir, { recursive: true });
@@ -53,23 +126,35 @@ const runCli = async () => {
 	const engine = buildStryxEngine();
 
 	const startTime = Date.now();
-	const response = await engine.fetchHtml(url, {
+	const fetchOptions = {
 		timeoutMs: timeoutMs,
-	});
-	const elapsedMs = Date.now() - startTime;
+	};
+	const response = await engine.fetchHtml(url, fetchOptions);
+	const endTime = Date.now();
+	const elapsedMs = endTime - startTime;
 
-	const cookieCount = Object.keys(response.cookies).length;
+	const cookieKeys = Object.keys(response.cookies);
+	const cookieCount = cookieKeys.length;
 	const bodyLength = response.body.length;
 
-	process.stdout.write(
-		`Status: ${response.status} | Body Length: ${bodyLength} | Cookies: ${cookieCount} | Time: ${elapsedMs}ms\n`,
-	);
+	const summaryLine = `Status: ${response.status} | Body Length: ${bodyLength} | Cookies: ${cookieCount} | Time: ${elapsedMs}ms\n`;
+	process.stdout.write(summaryLine);
 
 	await fs.writeFile(outputPath, response.body, "utf-8");
-	process.stdout.write(`Saved HTML output to: ${outputPath}\n`);
+	const savedLine = `Saved HTML output to: ${outputPath}\n`;
+	process.stdout.write(savedLine);
 };
 
-runCli().catch((err: Error) => {
-	process.stderr.write(`Execution failed: ${err.message}\n`);
+const handleFailure = (err: unknown) => {
+	const isErrorInstance = err instanceof Error;
+	let errorMessage = String(err);
+	if (isErrorInstance) {
+		const errorObj = err as Error;
+		errorMessage = errorObj.message;
+	}
+	const message = `Execution failed: ${errorMessage}\n`;
+	process.stderr.write(message);
 	process.exit(1);
-});
+};
+
+runCli().catch(handleFailure);
