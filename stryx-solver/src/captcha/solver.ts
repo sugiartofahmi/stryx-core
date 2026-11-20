@@ -8,7 +8,7 @@ import type {
 
 export type TCaptchaSolverDeps = {
 	browser: IBrowserClient;
-	cache?: ICache;
+	cache: ICache;
 };
 
 export const createCaptchaSolver = (deps: TCaptchaSolverDeps): IChallengeSolver => {
@@ -37,11 +37,9 @@ export const createCaptchaSolver = (deps: TCaptchaSolverDeps): IChallengeSolver 
 
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
-		const hasCache = Boolean(deps.cache);
 		const hasCookies = page.cookies.length > 0;
-		const isCacheable = hasCache && hasCookies;
-		if (isCacheable) {
-			await deps.cache!.set(hostname, page.cookies, 3600);
+		if (hasCookies) {
+			await deps.cache.set(hostname, page.cookies, 3600);
 		}
 
 		return {

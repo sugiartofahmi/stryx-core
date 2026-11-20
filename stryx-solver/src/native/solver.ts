@@ -9,8 +9,8 @@ import type {
 
 export type TNativeSolverDeps = {
 	browser: IBrowserClient;
-	transport?: ITransportClient;
-	cache?: ICache;
+	transport: ITransportClient;
+	cache: ICache;
 };
 
 const GENERIC_ANTI_MODAL_CSS = `
@@ -88,15 +88,9 @@ export const createNativeSolver = (deps: TNativeSolverDeps): IChallengeSolver =>
 		url: string,
 		options?: TScrapeOptions,
 	): Promise<TSolverOutcome | null> => {
-		const hasTransport = Boolean(deps.transport);
-		const isTransportMissing = !hasTransport;
-		if (isTransportMissing) {
-			return null;
-		}
-
 		try {
 			process.stderr.write("[native:pure-http] attempting pure http request with dom unlocking...\n");
-			const response = await deps.transport!.fetch(url, options);
+			const response = await deps.transport.fetch(url, options);
 			const isOkStatus = response.status === 200;
 			const hasContent = response.body.length > 5000;
 			const isSuccessful = isOkStatus && hasContent;
@@ -113,11 +107,9 @@ export const createNativeSolver = (deps: TNativeSolverDeps): IChallengeSolver =>
 					path: "/",
 				}));
 
-				const hasCache = Boolean(deps.cache);
 				const hasCookies = cookieItems.length > 0;
-				const isCacheable = hasCache && hasCookies;
-				if (isCacheable) {
-					await deps.cache!.set(hostname, cookieItems, 3600);
+				if (hasCookies) {
+					await deps.cache.set(hostname, cookieItems, 3600);
 				}
 
 				return {
@@ -152,11 +144,9 @@ export const createNativeSolver = (deps: TNativeSolverDeps): IChallengeSolver =>
 
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
-		const hasCache = Boolean(deps.cache);
 		const hasCookies = page.cookies.length > 0;
-		const isCacheable = hasCache && hasCookies;
-		if (isCacheable) {
-			await deps.cache!.set(hostname, page.cookies, 3600);
+		if (hasCookies) {
+			await deps.cache.set(hostname, page.cookies, 3600);
 		}
 
 		return {

@@ -16,8 +16,8 @@ import {
 
 export type TPerimeterxSolverDeps = {
 	browser: IBrowserClient;
-	transport?: ITransportClient;
-	cache?: ICache;
+	transport: ITransportClient;
+	cache: ICache;
 };
 
 export const createPerimeterxSolver = (deps: TPerimeterxSolverDeps): IChallengeSolver => {
@@ -39,16 +39,9 @@ export const createPerimeterxSolver = (deps: TPerimeterxSolverDeps): IChallengeS
 		url: string,
 		options?: TScrapeOptions,
 	): Promise<string | null> => {
-		const hasTransport = Boolean(deps.transport);
-		const isTransportMissing = !hasTransport;
-		if (isTransportMissing) {
-			process.stderr.write("[perimeterx:app-id] transport missing, skipping pure http\n");
-			return null;
-		}
-
 		try {
 			process.stderr.write("[perimeterx:app-id] inspecting target html for appId marker...\n");
-			const checkResp = await deps.transport!.fetch(url, options);
+			const checkResp = await deps.transport.fetch(url, options);
 			const detectedId = extractAppIdFromHtml(checkResp.body);
 			const hasDetectedId = Boolean(detectedId);
 			if (hasDetectedId) {
@@ -96,10 +89,7 @@ export const createPerimeterxSolver = (deps: TPerimeterxSolverDeps): IChallengeS
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
 
-		const hasCache = Boolean(deps.cache);
-		if (hasCache) {
-			await deps.cache!.set(hostname, collectedCookies, 328);
-		}
+		await deps.cache.set(hostname, collectedCookies, 328);
 
 		const cookieMap: Record<string, string> = {};
 		const hasExistingCookies = Boolean(options?.cookies);
@@ -117,7 +107,7 @@ export const createPerimeterxSolver = (deps: TPerimeterxSolverDeps): IChallengeS
 
 		try {
 			process.stderr.write("[perimeterx:pure-http] verifying target response with rebaked cookies...\n");
-			const finalResp = await deps.transport!.fetch(url, reFetchOptions);
+			const finalResp = await deps.transport.fetch(url, reFetchOptions);
 			const isStillBlocked = detects(finalResp.status, finalResp.body);
 			const isOkStatus = finalResp.status === 200;
 			const isSuccess = !isStillBlocked && isOkStatus;
@@ -154,11 +144,9 @@ export const createPerimeterxSolver = (deps: TPerimeterxSolverDeps): IChallengeS
 
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
-		const hasCache = Boolean(deps.cache);
 		const hasCookies = page.cookies.length > 0;
-		const isCacheable = hasCache && hasCookies;
-		if (isCacheable) {
-			await deps.cache!.set(hostname, page.cookies, 3600);
+		if (hasCookies) {
+			await deps.cache.set(hostname, page.cookies, 3600);
 		}
 
 		process.stderr.write("[perimeterx:browser:success] camoufox harvester completed\n");

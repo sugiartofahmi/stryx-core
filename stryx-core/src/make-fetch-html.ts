@@ -13,7 +13,7 @@ export type TCoreDeps = {
 	transport: ITransportClient;
 	detector: IWafDetector;
 	solvers: ISolverRegistry;
-	cache?: ICache;
+	cache: ICache;
 };
 
 export const makeFetchHtml = (deps: TCoreDeps): TFetchHtml => {
@@ -23,13 +23,10 @@ export const makeFetchHtml = (deps: TCoreDeps): TFetchHtml => {
 
 		const activeCookies: Record<string, string> = {};
 
-		const hasCache = Boolean(deps.cache);
-		if (hasCache) {
-			const cached = await deps.cache!.get(hostname);
-			const hasCached = Boolean(cached);
-			if (hasCached) {
-				Object.assign(activeCookies, cached!);
-			}
+		const cached = await deps.cache.get(hostname);
+		const hasCached = Boolean(cached);
+		if (hasCached) {
+			Object.assign(activeCookies, cached!);
 		}
 
 		const hasOptionsCookies = Boolean(options?.cookies);
@@ -58,9 +55,8 @@ export const makeFetchHtml = (deps: TCoreDeps): TFetchHtml => {
 			if (isClear) {
 				const cookieKeys = Object.keys(response!.cookies);
 				const hasNewCookies = cookieKeys.length > 0;
-				const isCacheableNewCookies = hasCache && hasNewCookies;
-				if (isCacheableNewCookies) {
-					await deps.cache!.set(hostname, response!.cookies, 3600);
+				if (hasNewCookies) {
+					await deps.cache.set(hostname, response!.cookies, 3600);
 				}
 				return response!;
 			}
@@ -73,9 +69,8 @@ export const makeFetchHtml = (deps: TCoreDeps): TFetchHtml => {
 				cookieMap[c.name] = c.value;
 			}
 			const hasOutcomeCookies = outcome.cookies.length > 0;
-			const isCacheableOutcome = hasCache && hasOutcomeCookies;
-			if (isCacheableOutcome) {
-				await deps.cache!.set(hostname, cookieMap, 3600);
+			if (hasOutcomeCookies) {
+				await deps.cache.set(hostname, cookieMap, 3600);
 			}
 			return {
 				status: 200,
@@ -93,9 +88,8 @@ export const makeFetchHtml = (deps: TCoreDeps): TFetchHtml => {
 			cookieMap[c.name] = c.value;
 		}
 		const hasFallbackCookies = outcome.cookies.length > 0;
-		const isCacheableFallback = hasCache && hasFallbackCookies;
-		if (isCacheableFallback) {
-			await deps.cache!.set(hostname, cookieMap, 3600);
+		if (hasFallbackCookies) {
+			await deps.cache.set(hostname, cookieMap, 3600);
 		}
 
 		return {

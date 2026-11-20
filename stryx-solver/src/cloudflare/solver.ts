@@ -9,8 +9,8 @@ import type {
 
 export type TCloudflareSolverDeps = {
 	browser: IBrowserClient;
-	transport?: ITransportClient;
-	cache?: ICache;
+	transport: ITransportClient;
+	cache: ICache;
 };
 
 export const createCloudflareSolver = (deps: TCloudflareSolverDeps): IChallengeSolver => {
@@ -32,14 +32,8 @@ export const createCloudflareSolver = (deps: TCloudflareSolverDeps): IChallengeS
 	const findCachedClearance = async (
 		hostname: string,
 	): Promise<Record<string, string> | null> => {
-		const hasCache = Boolean(deps.cache);
-		const isCacheMissing = !hasCache;
-		if (isCacheMissing) {
-			return null;
-		}
-
 		try {
-			const cached = await deps.cache!.get(hostname);
+			const cached = await deps.cache.get(hostname);
 			const hasClearance = Boolean(cached?.cf_clearance);
 			if (hasClearance) {
 				process.stderr.write(`[cloudflare:cache:hit] found cached cf_clearance for ${hostname}\n`);
@@ -59,12 +53,6 @@ export const createCloudflareSolver = (deps: TCloudflareSolverDeps): IChallengeS
 		cachedCookies: Record<string, string>,
 		options?: TScrapeOptions,
 	): Promise<TSolverOutcome | null> => {
-		const hasTransport = Boolean(deps.transport);
-		const isTransportMissing = !hasTransport;
-		if (isTransportMissing) {
-			return null;
-		}
-
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
 
@@ -82,7 +70,7 @@ export const createCloudflareSolver = (deps: TCloudflareSolverDeps): IChallengeS
 
 		try {
 			process.stderr.write("[cloudflare:pure-http] requesting target with cached clearance...\n");
-			const directResp = await deps.transport!.fetch(url, reFetchOptions);
+			const directResp = await deps.transport.fetch(url, reFetchOptions);
 			const isStillBlocked = detects(directResp.status, directResp.body);
 			const isOkStatus = directResp.status === 200;
 			const isSuccess = !isStillBlocked && isOkStatus;
@@ -125,13 +113,11 @@ export const createCloudflareSolver = (deps: TCloudflareSolverDeps): IChallengeS
 
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
-		const hasCache = Boolean(deps.cache);
 		const hasCookies = page.cookies.length > 0;
-		const isCacheable = hasCache && hasCookies;
 
-		if (isCacheable) {
+		if (hasCookies) {
 			const ttlSeconds = 86400 * 30;
-			await deps.cache!.set(hostname, page.cookies, ttlSeconds);
+			await deps.cache.set(hostname, page.cookies, ttlSeconds);
 			process.stderr.write(`[cloudflare:cache:saved] stored ${page.cookies.length} cookies in sqlite\n`);
 		}
 

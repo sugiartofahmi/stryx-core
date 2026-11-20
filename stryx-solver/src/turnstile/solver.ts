@@ -8,7 +8,7 @@ import type {
 
 export type TTurnstileSolverDeps = {
 	browser: IBrowserClient;
-	cache?: ICache;
+	cache: ICache;
 };
 
 export const createTurnstileSolver = (deps: TTurnstileSolverDeps): IChallengeSolver => {
@@ -34,11 +34,9 @@ export const createTurnstileSolver = (deps: TTurnstileSolverDeps): IChallengeSol
 
 		const parsedUrl = new URL(url);
 		const hostname = parsedUrl.hostname;
-		const hasCache = Boolean(deps.cache);
 		const hasCookies = page.cookies.length > 0;
-		const isCacheable = hasCache && hasCookies;
-		if (isCacheable) {
-			await deps.cache!.set(hostname, page.cookies, 3600);
+		if (hasCookies) {
+			await deps.cache.set(hostname, page.cookies, 3600);
 		}
 
 		return {
