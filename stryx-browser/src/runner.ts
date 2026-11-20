@@ -1,11 +1,19 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { IBrowserClient, TBrowserOptions, TCookieItem, TPageSnapshot } from "@stryx/domain";
+import type {
+	IBrowserClient,
+	IFingerprintRotator,
+	TBrowserOptions,
+	TCookieItem,
+	TPageSnapshot,
+} from "@stryx/domain";
 import { firefox } from "playwright-core";
+import { createFingerprintRotator } from "./fingerprint.js";
 
 export type TCamoufoxClientOptions = {
 	executablePath?: string;
+	fingerprintRotator?: IFingerprintRotator;
 };
 
 const resolveDefaultCamoufoxPath = (): string => {
@@ -32,6 +40,7 @@ const resolveDefaultCamoufoxPath = (): string => {
 
 export const createCamoufoxClient = (clientOptions?: TCamoufoxClientOptions): IBrowserClient => {
 	const resolvedPath = clientOptions?.executablePath || resolveDefaultCamoufoxPath();
+	const rotator = clientOptions?.fingerprintRotator || createFingerprintRotator();
 
 	const fetchPage = async (
 		url: string,
@@ -39,6 +48,7 @@ export const createCamoufoxClient = (clientOptions?: TCamoufoxClientOptions): IB
 	): Promise<TPageSnapshot> => {
 		const isHeadless = browserOptions?.headless ?? true;
 		const timeout = browserOptions?.timeoutMs ?? 45000;
+		const profile = browserOptions?.fingerprint || rotator.next();
 
 		const launchConfig = {
 			executablePath: resolvedPath,
@@ -48,7 +58,14 @@ export const createCamoufoxClient = (clientOptions?: TCamoufoxClientOptions): IB
 		const browser = await firefox.launch(launchConfig);
 
 		try {
-			const context = await browser.newContext();
+			const contextOptions = {
+				userAgent: profile.userAgent,
+				viewport: profile.viewport,
+				deviceScaleFactor: profile.deviceScaleFactor,
+				locale: profile.locale,
+				timezoneId: profile.timezoneId,
+			};
+			const context = await browser.newContext(contextOptions);
 
 			if (browserOptions?.cookies) {
 				const cookieEntries = Object.entries(browserOptions.cookies);
@@ -63,74 +80,37 @@ export const createCamoufoxClient = (clientOptions?: TCamoufoxClientOptions): IB
 			}
 
 			const page = await context.newPage();
-			const isLinkedIn = url.includes("linkedin.com");
-			let navReferer: string | undefined = undefined;
 
-			if (isLinkedIn) {
-				await page.addInitScript(() => {
-					const css = `
-						.contextual-sign-in-modal,
-						.modal__outlet,
-						#artdeco-modal-outlet,
-						[data-modal],
-						.modal-wormhole,
-						.sign-in-modal,
-						.modal-backdrop,
-						.modal__overlay,
-						div[data-view-name*="sign-in-modal"],
-						section[data-view-name*="sign-in-modal"] {
-							display: none !important;
-							opacity: 0 !important;
-							pointer-events: none !important;
-							visibility: hidden !important;
-						}
-						body {
-							overflow: auto !important;
-						}
-					`;
-					const style = document.createElement("style");
-					style.id = "stryx-anti-popup";
-					const textNode = document.createTextNode(css);
-					style.appendChild(textNode);
-					const attach = () => {
-						if (document.head) {
-							document.head.appendChild(style);
-						}
-					};
-					attach();
-					document.addEventListener("DOMContentLoaded", attach);
-				});
+			if (browserOptions?.initScript) {
+				const scriptSource = browserOptions.initScript;
+				await page.addInitScript(scriptSource);
+			}
 
-				const guestHydrationOptions = {
+			if (browserOptions?.preNavigationUrl) {
+				const preNavOptions = {
 					waitUntil: "domcontentloaded" as const,
 					timeout: 15000,
 				};
-				await page.goto("https://www.linkedin.com/jobs", guestHydrationOptions).catch(() => {});
+				await page.goto(browserOptions.preNavigationUrl, preNavOptions).catch(() => {});
 				await page.waitForTimeout(2000);
-				navReferer = "https://www.linkedin.com/jobs";
 			}
 
 			const navOptions = {
 				timeout: timeout,
-				waitUntil: "domcontentloaded" as const,
-				referer: navReferer,
+				waitUntil: "commit" as const,
+				referer: browserOptions?.referer,
 			};
 			const response = await page.goto(url, navOptions);
+			const domWaitOptions = {
+				timeout: 15000,
+			};
+			await page.waitForLoadState("domcontentloaded", domWaitOptions).catch(() => {});
 
 			await page.waitForTimeout(3500);
 
-			if (isLinkedIn) {
-				await page.evaluate(() => {
-					const selectors = [
-						".contextual-sign-in-modal",
-						".modal__outlet",
-						"#artdeco-modal-outlet",
-						"[data-modal]",
-						".modal-wormhole",
-						".sign-in-modal",
-						".modal-backdrop",
-						".modal__overlay"
-					];
+			if (browserOptions?.dismissSelectors && browserOptions.dismissSelectors.length > 0) {
+				const targetSelectors = browserOptions.dismissSelectors;
+				await page.evaluate((selectors) => {
 					for (const sel of selectors) {
 						const els = document.querySelectorAll(sel);
 						els.forEach((el) => {
@@ -139,7 +119,7 @@ export const createCamoufoxClient = (clientOptions?: TCamoufoxClientOptions): IB
 					}
 					document.body.classList.remove("modal-open");
 					document.body.style.overflow = "auto";
-				}).catch(() => {});
+				}, targetSelectors).catch(() => {});
 				await page.waitForTimeout(1000);
 			}
 
