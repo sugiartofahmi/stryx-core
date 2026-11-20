@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { Impit } from "impit";
 import type { TCookieItem, TScrapeOptions } from "@stryx/domain";
 
 export type TPxIdentity = {
@@ -88,20 +89,27 @@ export const executePureHttpCollector = async (
 		"Sec-Fetch-Site": "same-origin",
 	};
 
+	const proxyUrl = options?.proxy;
+	const client = new Impit({
+		browser: "firefox",
+		proxyUrl: proxyUrl,
+		ignoreTlsErrors: true,
+	});
+
 	let collectorSuccess = false;
 	let px3Token = "";
 
 	for (const endpoint of endpoints) {
 		try {
 			const timeout = options?.timeoutMs ?? 10000;
-			const signal = AbortSignal.timeout(timeout);
 			process.stderr.write(`[perimeterx:collector:dispatch] endpoint=${endpoint}\n`);
-			const response = await fetch(endpoint, {
-				method: "POST",
+			const fetchInit = {
+				method: "POST" as const,
 				headers: headers,
 				body: bodyString,
-				signal: signal,
-			});
+				timeout: timeout,
+			};
+			const response = await client.fetch(endpoint, fetchInit);
 
 			const responseText = await response.text();
 			const hasGetSetCookie = typeof response.headers.getSetCookie === "function";
@@ -152,7 +160,7 @@ export const executePureHttpCollector = async (
 
 	const isFailed = !collectorSuccess || !px3Token;
 	if (isFailed) {
-		process.stderr.write(`[perimeterx:collector:failed] unable to acquire _px3 token\n`);
+		process.stderr.write("[perimeterx:collector:failed] unable to acquire _px3 token\n");
 		return null;
 	}
 

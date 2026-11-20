@@ -1,55 +1,70 @@
+import { type Browser, Impit } from "impit";
 import type { ITransportClient, TScrapeOptions, TScrapeResponse } from "@stryx/domain";
 
-export const createChromeHeaders = (
-	customHeaders?: Record<string, string>,
-	cookies?: Record<string, string>,
-): Record<string, string> => {
-	const defaultHeaders: Record<string, string> = {
-		"User-Agent":
-			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-		Accept:
-			"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-		"Accept-Language": "en-US,en;q=0.9,id;q=0.8",
-		"Sec-Ch-Ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-		"Sec-Ch-Ua-Mobile": "?0",
-		"Sec-Ch-Ua-Platform": '"Linux"',
-		"Sec-Fetch-Dest": "document",
-		"Sec-Fetch-Mode": "navigate",
-		"Sec-Fetch-Site": "none",
-		"Sec-Fetch-User": "?1",
-		"Upgrade-Insecure-Requests": "1",
-	};
-
-	const hasCookies = Boolean(cookies);
-	if (hasCookies) {
-		const cookiePairs = Object.entries(cookies!).map(([k, v]) => `${k}=${v}`);
-		const cookieString = cookiePairs.join("; ");
-		const hasCookieString = cookieString.length > 0;
-		if (hasCookieString) {
-			defaultHeaders.Cookie = cookieString;
-		}
-	}
-
-	const hasCustomHeaders = Boolean(customHeaders);
-	if (hasCustomHeaders) {
-		Object.assign(defaultHeaders, customHeaders!);
-	}
-
-	return defaultHeaders;
+export type TTransportClientOptions = {
+	browser?: Browser;
+	ignoreTlsErrors?: boolean;
 };
 
-export const createTransportClient = (): ITransportClient => {
-	const fetchMethod = async (url: string, options?: TScrapeOptions): Promise<TScrapeResponse> => {
-		const headers = createChromeHeaders(options?.headers, options?.cookies);
-		const timeout = options?.timeoutMs ?? 15000;
-		const signal = AbortSignal.timeout(timeout);
+export const createTransportClient = (config?: TTransportClientOptions): ITransportClient => {
+	const selectedBrowser: Browser = config?.browser ?? "firefox";
+	const defaultClient = new Impit({
+		browser: selectedBrowser,
+		ignoreTlsErrors: config?.ignoreTlsErrors ?? true,
+	});
 
-		const response = await fetch(url, {
-			method: "GET",
-			headers: headers,
-			signal: signal,
-			redirect: "follow",
+	const proxyClients = new Map<string, Impit>();
+
+	const resolveClient = (proxy?: string): Impit => {
+		const hasProxy = Boolean(proxy);
+		const isProxyMissing = !hasProxy;
+		if (isProxyMissing) {
+			return defaultClient;
+		}
+
+		const existing = proxyClients.get(proxy!);
+		const hasExisting = Boolean(existing);
+		if (hasExisting) {
+			return existing!;
+		}
+
+		const created = new Impit({
+			browser: selectedBrowser,
+			proxyUrl: proxy,
+			ignoreTlsErrors: config?.ignoreTlsErrors ?? true,
 		});
+		proxyClients.set(proxy!, created);
+		return created;
+	};
+
+	const fetchMethod = async (url: string, options?: TScrapeOptions): Promise<TScrapeResponse> => {
+		const proxyParam = options?.proxy;
+		const client = resolveClient(proxyParam);
+		const headers: Record<string, string> = {};
+
+		const hasCustomHeaders = Boolean(options?.headers);
+		if (hasCustomHeaders) {
+			Object.assign(headers, options!.headers);
+		}
+
+		const hasCookies = Boolean(options?.cookies);
+		if (hasCookies) {
+			const rawCookies = options!.cookies!;
+			const cookiePairs = Object.entries(rawCookies).map(([k, v]) => `${k}=${v}`);
+			const cookieString = cookiePairs.join("; ");
+			const hasCookieString = cookieString.length > 0;
+			if (hasCookieString) {
+				headers.Cookie = cookieString;
+			}
+		}
+
+		const timeout = options?.timeoutMs ?? 15000;
+		const fetchInit = {
+			headers: headers,
+			timeout: timeout,
+		};
+
+		const response = await client.fetch(url, fetchInit);
 
 		const body = await response.text();
 		const responseHeaders: Record<string, string> = {};
@@ -84,8 +99,11 @@ export const createTransportClient = (): ITransportClient => {
 			if (isMissingEquals) {
 				continue;
 			}
-			const cookieName = firstSegment!.substring(0, eqIndex).trim();
-			const cookieVal = firstSegment!.substring(eqIndex + 1).trim();
+			const rawName = firstSegment!.substring(0, eqIndex);
+			const cookieName = rawName.trim();
+			const startPos = eqIndex + 1;
+			const rawVal = firstSegment!.substring(startPos);
+			const cookieVal = rawVal.trim();
 			cookies[cookieName] = cookieVal;
 		}
 
