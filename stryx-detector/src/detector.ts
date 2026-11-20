@@ -74,7 +74,8 @@ export const createWafDetector = (): IWafDetector => {
 		}
 
 		const isCaptcha = matchAnyPattern(CAPTCHA_PATTERNS, html);
-		if (isCaptcha) {
+		const isCaptchaGate = isCaptcha && (statusCode !== 200 || html.length < 50000);
+		if (isCaptchaGate) {
 			return "captcha";
 		}
 
