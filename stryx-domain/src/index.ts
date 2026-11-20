@@ -19,8 +19,33 @@ export type TBrowserOptions = {
 	headless?: boolean;
 	timeoutMs?: number;
 	proxy?: string;
+	referer?: string;
 	cookies?: Record<string, string>;
+	fingerprint?: TFingerprintProfile;
+	initScript?: string;
+	preNavigationUrl?: string;
+	dismissSelectors?: string[];
 };
+
+export type TFingerprintProfile = {
+	os: "windows" | "macos" | "linux";
+	userAgent: string;
+	viewport: {
+		width: number;
+		height: number;
+	};
+	deviceScaleFactor: number;
+	hardwareConcurrency: number;
+	deviceMemory: number;
+	locale: string;
+	timezoneId: string;
+	webglVendor: string;
+	webglRenderer: string;
+};
+
+export interface IFingerprintRotator {
+	next(): TFingerprintProfile;
+}
 
 export type TRetryPolicy = {
 	maxAttempts: number;
