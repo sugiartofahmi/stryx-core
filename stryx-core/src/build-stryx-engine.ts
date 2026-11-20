@@ -1,5 +1,5 @@
 import { type TCamoufoxClientOptions, createCamoufoxClient } from "@stryx/browser";
-import { createMemoryCache } from "@stryx/cache";
+import { createSqliteCache } from "@stryx/cache";
 import { createWafDetector } from "@stryx/detector";
 import type {
 	IBrowserClient,
@@ -37,15 +37,16 @@ export type TStryxEngine = {
 export const buildStryxEngine = (config?: TEngineConfig): TStryxEngine => {
 	const transport = createTransportClient();
 	const browser = createCamoufoxClient(config?.camoufox);
-	const cache = config?.cache || createMemoryCache();
+	const defaultCache = createSqliteCache();
+	const cache = config?.cache || defaultCache;
 	const detector = createWafDetector();
 
-	const cloudflareDeps = { browser: browser, cache: cache };
+	const cloudflareDeps = { browser: browser, transport: transport, cache: cache };
 	const turnstileDeps = { browser: browser, cache: cache };
-	const perimeterxDeps = { browser: browser, cache: cache };
+	const perimeterxDeps = { browser: browser, transport: transport, cache: cache };
 	const datadomeDeps = { browser: browser, cache: cache };
 	const captchaDeps = { browser: browser, cache: cache };
-	const nativeDeps = { browser: browser, cache: cache };
+	const nativeDeps = { browser: browser, transport: transport, cache: cache };
 
 	const cloudflareSolver = createCloudflareSolver(cloudflareDeps);
 	const turnstileSolver = createTurnstileSolver(turnstileDeps);

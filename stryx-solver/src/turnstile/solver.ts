@@ -16,14 +16,15 @@ export const createTurnstileSolver = (deps: TTurnstileSolverDeps): IChallengeSol
 
 	const detects = (statusCode: number, html: string): boolean => {
 		const lower = html.toLowerCase();
-		const hasMarker =
-			lower.includes("cf-turnstile") ||
-			lower.includes("turnstile/v0/api.js") ||
-			lower.includes("challenges.cloudflare.com/turnstile");
+		const hasTurnstileTag = lower.includes("cf-turnstile");
+		const hasTurnstileScript = lower.includes("turnstile/v0/api.js");
+		const hasTurnstileEndpoint = lower.includes("challenges.cloudflare.com/turnstile");
+		const hasMarker = hasTurnstileTag || hasTurnstileScript || hasTurnstileEndpoint;
 		return hasMarker;
 	};
 
 	const solve = async (url: string, options?: TScrapeOptions): Promise<TSolverOutcome> => {
+		process.stderr.write("[turnstile:solve] launching camoufox for turnstile widget...\n");
 		const browserOpts = {
 			headless: true,
 			timeoutMs: options?.timeoutMs ?? 45000,
@@ -31,10 +32,13 @@ export const createTurnstileSolver = (deps: TTurnstileSolverDeps): IChallengeSol
 		};
 		const page = await deps.browser.fetchPage(url, browserOpts);
 
-		if (deps.cache && page.cookies.length > 0) {
-			const parsedUrl = new URL(url);
-			const hostname = parsedUrl.hostname;
-			await deps.cache.set(hostname, page.cookies, 3600);
+		const parsedUrl = new URL(url);
+		const hostname = parsedUrl.hostname;
+		const hasCache = Boolean(deps.cache);
+		const hasCookies = page.cookies.length > 0;
+		const isCacheable = hasCache && hasCookies;
+		if (isCacheable) {
+			await deps.cache!.set(hostname, page.cookies, 3600);
 		}
 
 		return {

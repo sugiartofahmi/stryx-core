@@ -16,16 +16,18 @@ export const createCaptchaSolver = (deps: TCaptchaSolverDeps): IChallengeSolver 
 
 	const detects = (statusCode: number, html: string): boolean => {
 		const lower = html.toLowerCase();
+		const hasRecaptcha = lower.includes("recaptcha");
+		const hasHcaptcha = lower.includes("hcaptcha");
+		const hasArkose = lower.includes("arkoselabs");
+		const hasGeetest = lower.includes("geetest");
+		const hasSecurityCheck = lower.includes("security check");
 		const hasMarker =
-			lower.includes("recaptcha") ||
-			lower.includes("hcaptcha") ||
-			lower.includes("arkoselabs") ||
-			lower.includes("geetest") ||
-			lower.includes("security check");
+			hasRecaptcha || hasHcaptcha || hasArkose || hasGeetest || hasSecurityCheck;
 		return hasMarker;
 	};
 
 	const solve = async (url: string, options?: TScrapeOptions): Promise<TSolverOutcome> => {
+		process.stderr.write("[captcha:solve] launching camoufox for visual/interactive captcha...\n");
 		const browserOpts = {
 			headless: true,
 			timeoutMs: options?.timeoutMs ?? 45000,
@@ -33,10 +35,13 @@ export const createCaptchaSolver = (deps: TCaptchaSolverDeps): IChallengeSolver 
 		};
 		const page = await deps.browser.fetchPage(url, browserOpts);
 
-		if (deps.cache && page.cookies.length > 0) {
-			const parsedUrl = new URL(url);
-			const hostname = parsedUrl.hostname;
-			await deps.cache.set(hostname, page.cookies, 3600);
+		const parsedUrl = new URL(url);
+		const hostname = parsedUrl.hostname;
+		const hasCache = Boolean(deps.cache);
+		const hasCookies = page.cookies.length > 0;
+		const isCacheable = hasCache && hasCookies;
+		if (isCacheable) {
+			await deps.cache!.set(hostname, page.cookies, 3600);
 		}
 
 		return {

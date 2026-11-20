@@ -3,8 +3,9 @@ import type { IChallengeSolver, ISolverRegistry, TWafVendor } from "@stryx/domai
 export const createSolverRegistry = (initialSolvers?: IChallengeSolver[]): ISolverRegistry => {
 	const registry = new Map<TWafVendor, IChallengeSolver>();
 
-	if (initialSolvers) {
-		for (const solver of initialSolvers) {
+	const hasInitialSolvers = Boolean(initialSolvers);
+	if (hasInitialSolvers) {
+		for (const solver of initialSolvers!) {
 			registry.set(solver.vendor, solver);
 		}
 	}
@@ -15,13 +16,15 @@ export const createSolverRegistry = (initialSolvers?: IChallengeSolver[]): ISolv
 
 	const get = (vendor: TWafVendor): IChallengeSolver => {
 		const matched = registry.get(vendor);
-		if (matched) {
-			return matched;
+		const hasMatched = Boolean(matched);
+		if (hasMatched) {
+			return matched!;
 		}
 
 		const fallback = registry.get("generic");
-		if (fallback) {
-			return fallback;
+		const hasFallback = Boolean(fallback);
+		if (hasFallback) {
+			return fallback!;
 		}
 
 		const errMessage = `No solver registered for vendor: ${vendor}`;

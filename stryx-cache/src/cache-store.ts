@@ -11,17 +11,20 @@ export const createMemoryCache = (): ICache => {
 	return {
 		get: async (key: string): Promise<Record<string, string> | null> => {
 			const entry = storage.get(key);
-			if (!entry) {
+			const hasEntry = Boolean(entry);
+			const isEntryMissing = !hasEntry;
+			if (isEntryMissing) {
 				return null;
 			}
 
 			const now = Date.now();
-			if (now > entry.expiresAt) {
+			const isExpired = now > entry!.expiresAt;
+			if (isExpired) {
 				storage.delete(key);
 				return null;
 			}
 
-			return entry.cookies;
+			return entry!.cookies;
 		},
 
 		set: async (
@@ -31,7 +34,8 @@ export const createMemoryCache = (): ICache => {
 		): Promise<void> => {
 			const normalized: Record<string, string> = {};
 
-			if (Array.isArray(cookies)) {
+			const isArrayCookies = Array.isArray(cookies);
+			if (isArrayCookies) {
 				for (const item of cookies) {
 					normalized[item.name] = item.value;
 				}
@@ -40,7 +44,8 @@ export const createMemoryCache = (): ICache => {
 			}
 
 			const ttlMs = ttlSeconds * 1000;
-			const expiresAt = Date.now() + ttlMs;
+			const now = Date.now();
+			const expiresAt = now + ttlMs;
 
 			storage.set(key, {
 				cookies: normalized,

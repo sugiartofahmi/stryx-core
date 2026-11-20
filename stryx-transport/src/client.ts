@@ -20,16 +20,19 @@ export const createChromeHeaders = (
 		"Upgrade-Insecure-Requests": "1",
 	};
 
-	if (cookies) {
-		const cookiePairs = Object.entries(cookies).map(([k, v]) => `${k}=${v}`);
+	const hasCookies = Boolean(cookies);
+	if (hasCookies) {
+		const cookiePairs = Object.entries(cookies!).map(([k, v]) => `${k}=${v}`);
 		const cookieString = cookiePairs.join("; ");
-		if (cookieString.length > 0) {
+		const hasCookieString = cookieString.length > 0;
+		if (hasCookieString) {
 			defaultHeaders.Cookie = cookieString;
 		}
 	}
 
-	if (customHeaders) {
-		Object.assign(defaultHeaders, customHeaders);
+	const hasCustomHeaders = Boolean(customHeaders);
+	if (hasCustomHeaders) {
+		Object.assign(defaultHeaders, customHeaders!);
 	}
 
 	return defaultHeaders;
@@ -62,23 +65,27 @@ export const createTransportClient = (): ITransportClient => {
 			setCookies = response.headers.getSetCookie();
 		} else {
 			const rawCookie = response.headers.get("set-cookie");
-			if (rawCookie) {
-				setCookies = [rawCookie];
+			const hasRawCookie = Boolean(rawCookie);
+			if (hasRawCookie) {
+				setCookies = [rawCookie!];
 			}
 		}
 
 		for (const cookieStr of setCookies) {
 			const cookieParts = cookieStr.split(";");
 			const firstSegment = cookieParts[0];
-			if (!firstSegment) {
+			const hasFirstSegment = Boolean(firstSegment);
+			const isSegmentMissing = !hasFirstSegment;
+			if (isSegmentMissing) {
 				continue;
 			}
-			const eqIndex = firstSegment.indexOf("=");
-			if (eqIndex === -1) {
+			const eqIndex = firstSegment!.indexOf("=");
+			const isMissingEquals = eqIndex === -1;
+			if (isMissingEquals) {
 				continue;
 			}
-			const cookieName = firstSegment.substring(0, eqIndex).trim();
-			const cookieVal = firstSegment.substring(eqIndex + 1).trim();
+			const cookieName = firstSegment!.substring(0, eqIndex).trim();
+			const cookieVal = firstSegment!.substring(eqIndex + 1).trim();
 			cookies[cookieName] = cookieVal;
 		}
 
