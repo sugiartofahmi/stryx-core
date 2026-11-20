@@ -7,7 +7,7 @@ export type TTransportClientOptions = {
 };
 
 export const createTransportClient = (config?: TTransportClientOptions): ITransportClient => {
-	const selectedBrowser: Browser = config?.browser ?? "firefox";
+	const selectedBrowser: Browser = config?.browser ?? "chrome";
 	const defaultClient = new Impit({
 		browser: selectedBrowser,
 		ignoreTlsErrors: config?.ignoreTlsErrors ?? true,
