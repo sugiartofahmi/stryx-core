@@ -11,6 +11,53 @@ export type TNativeSolverDeps = {
 	cache?: ICache;
 };
 
+const GENERIC_ANTI_MODAL_SCRIPT = `
+	(() => {
+		const css = \`
+			.contextual-sign-in-modal,
+			.modal__outlet,
+			#artdeco-modal-outlet,
+			[data-modal],
+			.modal-wormhole,
+			.sign-in-modal,
+			.modal-backdrop,
+			.modal__overlay,
+			div[data-view-name*="sign-in-modal"],
+			section[data-view-name*="sign-in-modal"] {
+				display: none !important;
+				opacity: 0 !important;
+				pointer-events: none !important;
+				visibility: hidden !important;
+			}
+			body {
+				overflow: auto !important;
+			}
+		\`;
+		const style = document.createElement("style");
+		style.id = "stryx-anti-popup";
+		const textNode = document.createTextNode(css);
+		style.appendChild(textNode);
+		const attach = () => {
+			if (document.head) {
+				document.head.appendChild(style);
+			}
+		};
+		attach();
+		document.addEventListener("DOMContentLoaded", attach);
+	})();
+`;
+
+const GENERIC_DISMISS_SELECTORS = [
+	".contextual-sign-in-modal",
+	".modal__outlet",
+	"#artdeco-modal-outlet",
+	"[data-modal]",
+	".modal-wormhole",
+	".sign-in-modal",
+	".modal-backdrop",
+	".modal__overlay",
+];
+
 export const createNativeSolver = (deps: TNativeSolverDeps): IChallengeSolver => {
 	const vendor = "generic";
 
@@ -24,6 +71,8 @@ export const createNativeSolver = (deps: TNativeSolverDeps): IChallengeSolver =>
 			headless: true,
 			timeoutMs: options?.timeoutMs ?? 45000,
 			cookies: options?.cookies,
+			initScript: GENERIC_ANTI_MODAL_SCRIPT,
+			dismissSelectors: GENERIC_DISMISS_SELECTORS,
 		};
 		const page = await deps.browser.fetchPage(url, browserOpts);
 
