@@ -1,0 +1,20 @@
+{
+	"name": "stryx-monorepo",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Stryx - Universal Web Scraping & Unblocker Engine",
+	"type": "module",
+	"scripts": {
+		"cli": "tsx stryx-cli/src/cli.ts",
+		"build": "pnpm -r run build",
+		"test": "pnpm -r run test",
+		"check": "biome check .",
+		"format": "biome format --write ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "1.9.4",
+		"@types/node": "^26.6.6",
+		"tsx": "^4.23.15",
+		"typescript": "^5.7.3"
+	}
+}
